@@ -1,6 +1,37 @@
 import { useState } from 'react';
 import './auth.css';
 
+const DEFAULT_USERS = [
+  { name: 'Demo User', email: 'user@skillnova.com', password: 'password123', role: 'user' },
+  { name: 'Demo Admin', email: 'admin@skillnova.com', password: 'password123', role: 'admin' },
+];
+
+const getStoredUsers = () => {
+  const stored = localStorage.getItem('mockUsers');
+  if (!stored) {
+    localStorage.setItem('mockUsers', JSON.stringify(DEFAULT_USERS));
+    return DEFAULT_USERS;
+  }
+  try {
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.setItem('mockUsers', JSON.stringify(DEFAULT_USERS));
+      return DEFAULT_USERS;
+    }
+    const merged = [...parsed];
+    for (const def of DEFAULT_USERS) {
+      if (!merged.some((u) => u.email === def.email && u.role === def.role)) {
+        merged.push(def);
+      }
+    }
+    localStorage.setItem('mockUsers', JSON.stringify(merged));
+    return merged;
+  } catch {
+    localStorage.setItem('mockUsers', JSON.stringify(DEFAULT_USERS));
+    return DEFAULT_USERS;
+  }
+};
+
 const Login = ({ onLoginSuccess }) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [role, setRole] = useState('user');
@@ -9,6 +40,16 @@ const Login = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+
+  const fillDemoCredentials = (demoRole) => {
+    const demo = DEFAULT_USERS.find((u) => u.role === demoRole);
+    if (demo) {
+      setRole(demo.role);
+      setEmail(demo.email);
+      setPassword(demo.password);
+      setErrors({});
+    }
+  };
 
   const validate = () => {
     const newErrors = {};
@@ -44,10 +85,10 @@ const Login = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     try {
+      const storedUsers = getStoredUsers();
+
       if (isRegistering) {
-        // Check if user already exists in mock logic (since PR didn't provide registration fetch)
-        const storedUsers = JSON.parse(localStorage.getItem('mockUsers') || '[]');
-        if (storedUsers.some(u => u.email === email)) {
+        if (storedUsers.some((u) => u.email === email)) {
           setErrors({ form: 'An account with this email already exists' });
           setIsLoading(false);
           return;
@@ -56,14 +97,14 @@ const Login = ({ onLoginSuccess }) => {
         // Save new user
         const newUser = { name, email, password, role };
         localStorage.setItem('mockUsers', JSON.stringify([...storedUsers, newUser]));
-
         localStorage.setItem("user", JSON.stringify({ email: email, role: newUser.role }));
 
         setIsLoading(false);
         onLoginSuccess(role, email, name);
       } else {
-        const storedUsers = JSON.parse(localStorage.getItem('mockUsers') || '[]');
-        const mockUser = storedUsers.find(u => u.email === email && u.password === password && u.role === role);
+        const mockUser = storedUsers.find(
+          (u) => u.email === email && u.password === password && u.role === role
+        );
 
         if (mockUser) {
           localStorage.setItem("user", JSON.stringify({ email: email, role: mockUser.role }));
@@ -101,6 +142,69 @@ const Login = ({ onLoginSuccess }) => {
             ? 'Sign up to get started with SkillNova.'
             : 'Sign in to your SkillNova account to continue.'}
         </p>
+
+        {!isRegistering && (
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '12px 14px',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '10px',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '11px',
+                color: '#9ca3af',
+                marginBottom: '8px',
+                fontWeight: 600,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Demo Credentials (Click to fill)
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => fillDemoCredentials('user')}
+                style={{
+                  flex: 1,
+                  padding: '7px 10px',
+                  background: role === 'user' ? 'rgba(0, 190, 163, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                  border: `1px solid ${role === 'user' ? '#00bea3' : 'rgba(255, 255, 255, 0.1)'}`,
+                  borderRadius: '6px',
+                  color: role === 'user' ? '#5eead4' : '#e5e7eb',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                👤 User
+              </button>
+              <button
+                type="button"
+                onClick={() => fillDemoCredentials('admin')}
+                style={{
+                  flex: 1,
+                  padding: '7px 10px',
+                  background: role === 'admin' ? 'rgba(255, 109, 52, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                  border: `1px solid ${role === 'admin' ? '#ff6d34' : 'rgba(255, 255, 255, 0.1)'}`,
+                  borderRadius: '6px',
+                  color: role === 'admin' ? '#fdba74' : '#e5e7eb',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                🛡️ Admin
+              </button>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} noValidate>
           <div className="auth-form-group">
